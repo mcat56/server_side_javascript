@@ -8,7 +8,7 @@ const database = require('knex')(configuration);
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true}));
-app.set('port', process.env.PORT || 3000)
+app.set('port', process.env.PORT || 3000);
 app.locals.title = 'Publications';
 
 app.get('/', (request, response) => {
@@ -60,25 +60,60 @@ app.post('/api/v1/papers', (request, response) => {
 });
 
 
+app.post('/api/v1/papers/:id/footnotes', (request, response) => {
+  const note = request.body
+  const paper = { paper_id: request.params.id }
+  const footnote = Object.assign(note, paper)
+  console.log(footnote)
+
+  for (let requiredParameter of ['note']) {
+    if (!footnote[requiredParameter]) {
+      return response
+        .status(422)
+        .send( { error: `Expected format: { note: <String> }. You're missing a "${requiredParameter}" property.`})
+    }
+  }
+
+  database('footnotes').insert(footnote, 'id')
+    .then(footnote => {
+      response.status(201).json({ id: footnote[0] })
+    })
+    .catch(error => {
+      response.status(500).json({ error });
+  });
+});
 
 
+app.get('/api/v1/papers/:id', (request, response) => {
+  database('papers').where('id', request.params.id).select()
+    .then(papers => {
+      if (papers.length) {
+        response.status(200).json(papers);
+      } else {
+        response.status(404).json({
+          error: `Could not find paper with id ${request.params.id}`
+        });
+      }
+    })
+    .catch(error => {
+      response.status(500).json( {error });
+    });
+});
 
 
+app.get('/api/v1/papers/:id/footnotes', (request, response) => {
+  database('footnotes').where('paper_id', request.params.id).select()
+    .then(footnotes => {
+      if (footnotes.length) {
+        response.status(200).json(footnotes);
+      } else {
+        response.status(404).json({
+          error: `Could not find footnotes for paper wih id ${request.params.id}`
+        });
+      }
+    })
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-app.listen(app.get('port'), () => {
-  console.log(`${app.locals.title} is running on ${app.get('port')}.`);
+    .catch(error => {
+      response.status(500).json({ error });
+    });
 });
